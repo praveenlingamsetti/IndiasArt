@@ -1,20 +1,42 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRef } from "react";
+import { StatusBar } from "expo-status-bar";
+import {
+  NavigationContainer,
+  type NavigationContainerRef,
+} from "@react-navigation/native";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { queryClient } from "@/lib/query-client";
+import { AppNavigator } from "@/navigation/AppNavigator";
+import { AuthProvider } from "@/context/auth-context";
+import { trackScreenView } from "@/lib/analytics";
+import type { RootTabParamList } from "@/navigation/AppNavigator";
 
 export default function App() {
+  const navigationRef = useRef<NavigationContainerRef<RootTabParamList> | null>(
+    null,
+  );
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <NavigationContainer
+            ref={navigationRef}
+            onReady={() => {
+              const routeName = navigationRef.current?.getCurrentRoute()?.name;
+              if (routeName) trackScreenView(routeName);
+            }}
+            onStateChange={() => {
+              const routeName = navigationRef.current?.getCurrentRoute()?.name;
+              if (routeName) trackScreenView(routeName);
+            }}
+          >
+            <StatusBar style="dark" translucent={false} backgroundColor="#ffffff" />
+            <AppNavigator />
+          </NavigationContainer>
+        </AuthProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
