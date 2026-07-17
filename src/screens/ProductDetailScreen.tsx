@@ -18,12 +18,13 @@ import {
   type NavigationProp,
   type RouteProp,
 } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { addToCart } from "@/services/cart";
 import { getCart, removeCartItem, updateCartItem } from "@/services/cart";
 import { getProductBySlug, getProducts } from "@/services/products";
 import type { HomeStackParamList, RootTabParamList } from "@/navigation/AppNavigator";
 import { ApiRequestError } from "@/lib/http";
-import { addWishlist } from "@/services/wishlist";
+import { addWishlist, getWishlist, removeWishlist } from "@/services/wishlist";
 import { getReviewEligibility, submitProductReview } from "@/services/reviews";
 import { AppButton } from "@/components/ui/AppButton";
 import { LoadingView } from "@/components/ui/LoadingView";
@@ -84,16 +85,28 @@ export function ProductDetailScreen() {
     },
   });
 
-  const wishlistMutation = useMutation({
-    mutationFn: (productId: string) => addWishlist(productId),
+  const toggleWishlistMutation = useMutation({
+    mutationFn: async ({
+      productId,
+      shouldAdd,
+    }: {
+      productId: string;
+      shouldAdd: boolean;
+    }) => {
+      if (shouldAdd) {
+        await addWishlist(productId);
+        return;
+      }
+      await removeWishlist(productId);
+    },
     onSuccess: () => {
-      Alert.alert("Saved", "Added to your wishlist.");
+      queryClient.invalidateQueries({ queryKey: ["wishlist"] });
     },
     onError: (error) => {
       const message =
         error instanceof ApiRequestError
           ? error.message
-          : "Could not add item to wishlist";
+          : "Could not update wishlist";
       Alert.alert("Error", message);
     },
   });
@@ -105,6 +118,11 @@ export function ProductDetailScreen() {
   const cartQuery = useQuery({
     queryKey: ["cart"],
     queryFn: getCart,
+    enabled: Boolean(user),
+  });
+  const wishlistQuery = useQuery({
+    queryKey: ["wishlist"],
+    queryFn: getWishlist,
     enabled: Boolean(user),
   });
 
@@ -192,12 +210,45 @@ export function ProductDetailScreen() {
   const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
   const reviews = product.reviews ?? [];
   const canReview = reviewEligibilityQuery.data?.canReview ?? false;
+  const isWishlisted = (wishlistQuery.data ?? []).some(
+    (item) => item.productId === product.id,
+  );
   const imageWidth = Math.max(220, viewportWidth - 32);
   const cartLine = (cartQuery.data?.items ?? []).find(
     (item) =>
       item.product.id === product.id &&
       (selectedVariant?.id ? item.variantId === selectedVariant.id : true),
   );
+  async function handleBuyNow() {
+    if (!product) return;
+    if (!user) {
+      tabNavigation.navigate("ProfileTab");
+      return;
+    }
+
+    try {
+      let targetCartItemId = cartLine?.id;
+      if (!targetCartItemId) {
+        const updatedCart = await addToCartMutation.mutateAsync({
+          productId: product.id,
+          variantId: selectedVariant?.id,
+        });
+        const matched = updatedCart.items.find(
+          (item) =>
+            item.product.id === product.id &&
+            (selectedVariant?.id ? item.variantId === selectedVariant.id : true),
+        );
+        targetCartItemId = matched?.id;
+      }
+
+      stackNavigation.navigate("Checkout", {
+        cartItemId: targetCartItemId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not continue to checkout";
+      Alert.alert("Buy now failed", message);
+    }
+  }
 
   const renderInlineProductCard = (item: ProductListItem) => (
     <Pressable
@@ -241,10 +292,26 @@ export function ProductDetailScreen() {
               <Image
                 source={{ uri: item.imageUrl }}
                 style={[styles.productImage, { width: imageWidth }]}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             )}
           />
+          <Pressable
+            style={styles.pdpWishlistIcon}
+            onPress={() =>
+              toggleWishlistMutation.mutate({
+                productId: product.id,
+                shouldAdd: !isWishlisted,
+              })
+            }
+            disabled={toggleWishlistMutation.isPending}
+          >
+            <Ionicons
+              name={isWishlisted ? "heart" : "heart-outline"}
+              size={20}
+              color={isWishlisted ? colors.primary : colors.text}
+            />
+          </Pressable>
           {product.images.length > 1 ? (
             <View style={styles.carouselDots}>
               {product.images.map((image, index) => (
@@ -351,18 +418,14 @@ export function ProductDetailScreen() {
           disabled={displayStock < 1 || addToCartMutation.isPending}
         />
       )}
-      <AppButton
-        title={wishlistMutation.isPending ? "Saving..." : "Save to wishlist"}
-        onPress={() => wishlistMutation.mutate(product.id)}
-        variant="outline"
-        disabled={wishlistMutation.isPending}
-      />
-      <Pressable
-        style={styles.checkoutLink}
-        onPress={() => tabNavigation.navigate("CartTab")}
-      >
-        <Text style={styles.checkoutLinkText}>Go to cart to checkout</Text>
-      </Pressable>
+      <View style={styles.buyNowWrap}>
+        <AppButton
+          title={addToCartMutation.isPending ? "Preparing..." : "Buy now"}
+          variant="outline"
+          onPress={handleBuyNow}
+          disabled={displayStock < 1 || addToCartMutation.isPending}
+        />
+      </View>
 
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Expected delivery</Text>
@@ -500,6 +563,7 @@ const styles = StyleSheet.create({
   productImage: {
     height: 220,
     borderRadius: 12,
+    backgroundColor: colors.surface,
   },
   imageCarouselContent: {
     gap: 0,
@@ -534,9 +598,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: colors.text,
+  },
+  pdpWishlistIcon: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   price: {
     fontSize: 18,
@@ -593,13 +670,8 @@ const styles = StyleSheet.create({
   variantChipTextActive: {
     color: colors.primary,
   },
-  checkoutLink: {
-    alignItems: "center",
+  buyNowWrap: {
     marginTop: 4,
-  },
-  checkoutLinkText: {
-    color: colors.primary,
-    fontWeight: "600",
   },
   pdpQtyControl: {
     borderWidth: 1,

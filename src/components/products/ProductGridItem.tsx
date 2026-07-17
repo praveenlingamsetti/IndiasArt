@@ -37,16 +37,26 @@ export function ProductGridItem({
         <Pressable style={styles.wishlistIcon} onPress={onToggleWishlist}>
           <Ionicons
             name={isWishlisted ? "heart" : "heart-outline"}
-            color={isWishlisted ? "#d946ef" : colors.text}
+            color={isWishlisted ? colors.primary : colors.text}
             size={20}
           />
         </Pressable>
+        {item.hasVariants ? (
+          <View style={styles.variantPill}>
+            <Text style={styles.variantPillText}>Variants</Text>
+          </View>
+        ) : null}
       </View>
 
       <Text numberOfLines={2} style={styles.title}>
         {item.title}
       </Text>
       <Text style={styles.price}>Rs {item.price.toFixed(0)}</Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.stockMeta} numberOfLines={1}>
+          {item.stock > 0 ? `${item.stock} available` : "Currently unavailable"}
+        </Text>
+      </View>
 
       {item.stock > 0 ? (
         quantityInCart ? (
@@ -79,7 +89,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 8,
     gap: 6,
     shadowColor: "#000",
@@ -88,22 +98,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  cardPressed: { transform: [{ scale: 0.992 }] },
+  cardPressed: { transform: [{ scale: 0.985 }] },
   imageWrap: {
     position: "relative",
   },
   image: {
     width: "100%",
-    height: 170,
-    borderRadius: 10,
+    height: 162,
+    borderRadius: 12,
   },
   imagePlaceholder: {
     width: "100%",
-    height: 170,
-    borderRadius: 10,
+    height: 162,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: colors.background,
   },
   imagePlaceholderText: {
     color: colors.mutedText,
@@ -113,7 +123,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
-    minHeight: 40,
+    minHeight: 38,
   },
   price: {
     fontSize: 18,
@@ -124,17 +134,43 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "#ffffffdd",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 999,
     width: 34,
     height: 34,
     alignItems: "center",
     justifyContent: "center",
   },
+  variantPill: {
+    position: "absolute",
+    left: 8,
+    bottom: 8,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  variantPillText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  metaRow: {
+    minHeight: 16,
+  },
+  stockMeta: {
+    fontSize: 11,
+    color: colors.mutedText,
+    fontWeight: "600",
+  },
   addButton: {
     alignSelf: "flex-end",
     borderRadius: 10,
-    backgroundColor: "#7e22ce",
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
@@ -157,7 +193,7 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.background,
   },
   qtyButtonText: {
     fontSize: 20,
@@ -173,14 +209,14 @@ const styles = StyleSheet.create({
   outOfStockPill: {
     alignSelf: "flex-end",
     borderWidth: 1,
-    borderColor: "#f3c4c4",
+    borderColor: colors.border,
     borderRadius: 999,
-    backgroundColor: "#fef2f2",
+    backgroundColor: colors.background,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   outOfStockText: {
-    color: "#b91c1c",
+    color: colors.mutedText,
     fontWeight: "600",
   },
 });

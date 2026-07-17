@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/context/auth-context";
 import { AppButton } from "@/components/ui/AppButton";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { colors } from "@/theme/colors";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ProfileStackParamList } from "@/navigation/AppNavigator";
@@ -17,29 +18,47 @@ export function ProfileScreen() {
 
   if (!user) {
     return (
-      <View style={styles.center}>
-        <Text>Please sign in.</Text>
+      <View style={styles.container}>
+        <AppTopHeader />
+        <View style={styles.center}>
+          <Text>Please sign in.</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.name}>{user.name}</Text>
-      <Text style={styles.email}>{user.email}</Text>
-      <Text style={styles.meta}>Role: {user.role}</Text>
+      <AppTopHeader />
+      <View style={styles.content}>
+        <Text style={styles.name}>{user.name}</Text>
+        <Text style={styles.email}>{user.email}</Text>
+        <Text style={styles.meta}>Role: {user.role}</Text>
 
-      <View style={styles.actions}>
-        <AppButton title="My addresses" variant="outline" onPress={() => navigation.navigate("Addresses")} />
-        <AppButton title="Wishlist" variant="outline" onPress={() => navigation.navigate("Wishlist")} />
-        <AppButton title="Support" variant="outline" onPress={() => navigation.navigate("Support")} />
+        <View style={styles.actions}>
+          <AppButton
+            title="My addresses"
+            variant="outline"
+            onPress={() => navigation.navigate("Addresses")}
+          />
+          <AppButton
+            title="Wishlist"
+            variant="outline"
+            onPress={() => navigation.navigate("Wishlist")}
+          />
+          <AppButton
+            title="Support"
+            variant="outline"
+            onPress={() => navigation.navigate("Support")}
+          />
+        </View>
+
+        <AppButton
+          title="Sign out"
+          variant="danger"
+          onPress={() => setConfirmLogoutVisible(true)}
+        />
       </View>
-
-      <AppButton
-        title="Sign out"
-        variant="danger"
-        onPress={() => setConfirmLogoutVisible(true)}
-      />
 
       <ConfirmModal
         visible={confirmLogoutVisible}
@@ -61,6 +80,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  content: {
     padding: 16,
     gap: 6,
   },

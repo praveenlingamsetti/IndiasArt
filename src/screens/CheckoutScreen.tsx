@@ -30,7 +30,7 @@ import { LoadingView } from "@/components/ui/LoadingView";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AppButton } from "@/components/ui/AppButton";
 import { colors } from "@/theme/colors";
-import { openRazorpayCheckout } from "@/lib/razorpay";
+import { isRazorpayCheckoutAvailable, openRazorpayCheckout } from "@/lib/razorpay";
 import type { CartStackParamList } from "@/navigation/AppNavigator";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
@@ -138,6 +138,13 @@ export function CheckoutScreen() {
         Alert.alert(
           "Missing Razorpay key",
           "Set EXPO_PUBLIC_RAZORPAY_KEY_ID in your mobile .env and restart Expo.",
+        );
+        return;
+      }
+      if (paymentMethod === "ONLINE" && !isRazorpayCheckoutAvailable()) {
+        Alert.alert(
+          "Razorpay unavailable",
+          "Razorpay native module is not available in this build. Use a development build (`npx expo run:android`) instead of Expo Go.",
         );
         return;
       }

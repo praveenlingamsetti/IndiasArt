@@ -144,6 +144,11 @@ export type OrderItem = {
   productId: string;
   quantity: number;
   price: number;
+  variantName?: string | null;
+  returnsAllowed?: boolean;
+  returnWindowDays?: number | null;
+  returnStatus?: string;
+  refundedAt?: string | null;
   product: {
     id: string;
     title: string;
@@ -160,6 +165,8 @@ export type Order = {
   paymentMethod?: "ONLINE" | "COD";
   totalAmount: number;
   createdAt: string;
+  deliveredAt?: string | null;
+  settlementEligibleAt?: string | null;
   items: OrderItem[];
 };
 

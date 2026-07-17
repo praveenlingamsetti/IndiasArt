@@ -82,7 +82,7 @@ function ShopStackNavigator() {
       <HomeStack.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: "INDIASART" }}
+        options={{ headerShown: false }}
       />
       <HomeStack.Screen
         name="ProductDetail"
@@ -119,7 +119,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen
         name="ProfileHome"
         component={ProfileScreen}
-        options={{ title: "Account" }}
+        options={{ headerShown: false }}
       />
       <ProfileStack.Screen
         name="Addresses"
@@ -161,7 +161,7 @@ function OrdersStackNavigator() {
       <OrdersStack.Screen
         name="OrdersHome"
         component={OrdersScreen}
-        options={{ title: "Orders" }}
+        options={{ headerShown: false }}
       />
       <OrdersStack.Screen
         name="OrderDetail"
@@ -188,7 +188,7 @@ function SearchStackNavigator() {
       <SearchStack.Screen
         name="SearchHome"
         component={SearchScreen}
-        options={{ title: "Search" }}
+        options={{ headerShown: false }}
       />
       <SearchStack.Screen
         name="ProductDetail"
@@ -215,7 +215,7 @@ function CartStackNavigator() {
       <CartStack.Screen
         name="CartHome"
         component={CartScreen}
-        options={{ title: "INDIASART" }}
+        options={{ headerShown: false }}
       />
       <CartStack.Screen
         name="Checkout"
@@ -264,7 +264,7 @@ export function AppNavigator() {
         tabBarIcon: ({ color, size }) => {
           const iconName: Record<string, keyof typeof Ionicons.glyphMap> = {
             HomeTab: "home-outline",
-            SearchTab: "search-outline",
+            SearchTab: "grid-outline",
             CartTab: "cart-outline",
             OrdersTab: "receipt-outline",
             ProfileTab: "person-outline",
@@ -279,17 +279,17 @@ export function AppNavigator() {
         options={{ title: "Home" }}
       />
       <Tab.Screen
-        name="SearchTab"
-        component={SearchStackNavigator}
-        options={{ title: "Search" }}
-      />
-      <Tab.Screen
         name="CartTab"
         component={CartStackNavigator}
         options={{
           title: "Cart",
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
         }}
+      />
+      <Tab.Screen
+        name="SearchTab"
+        component={SearchStackNavigator}
+        options={{ title: "Categories" }}
       />
       {user ? (
         <>

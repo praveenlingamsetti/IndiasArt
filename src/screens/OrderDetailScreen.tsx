@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -37,8 +37,45 @@ const REASON_OPTIONS = [
   "Found a better price",
   "Delivery is too late",
   "Need a different product/variant",
-  "Other",
+  "Other reason",
 ];
+
+type TrackingEvent = {
+  label: string;
+  timestamp?: string;
+  location?: string;
+};
+
+function extractShipmentEvents(liveTracking: unknown): TrackingEvent[] {
+  if (!liveTracking || typeof liveTracking !== "object") return [];
+  const trackingData = (liveTracking as { tracking_data?: unknown }).tracking_data;
+  if (!trackingData || typeof trackingData !== "object") return [];
+  const rawActivities = (trackingData as { shipment_track_activities?: unknown }).shipment_track_activities;
+  if (!Array.isArray(rawActivities)) return [];
+  const events: TrackingEvent[] = [];
+  for (const item of rawActivities) {
+    if (!item || typeof item !== "object") continue;
+    const activity = item as Record<string, unknown>;
+    const label =
+      (typeof activity.activity === "string" && activity.activity) ||
+      (typeof activity["sr-status"] === "string" && activity["sr-status"]) ||
+      (typeof activity.current_status === "string" && activity.current_status) ||
+      (typeof activity.status === "string" && activity.status) ||
+      "";
+    if (!label) continue;
+    const timestamp =
+      (typeof activity.date === "string" && activity.date) ||
+      (typeof activity.datetime === "string" && activity.datetime) ||
+      undefined;
+    const location =
+      (typeof activity.location === "string" && activity.location) ||
+      (typeof activity["sr-current-location"] === "string" && activity["sr-current-location"]) ||
+      undefined;
+    events.push({ label, timestamp, location });
+    if (events.length >= 5) break;
+  }
+  return events;
+}
 
 export function OrderDetailScreen() {
   const queryClient = useQueryClient();
@@ -46,11 +83,36 @@ export function OrderDetailScreen() {
   const { orderId } = route.params;
   const [reason, setReason] = useState(REASON_OPTIONS[0]);
   const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [selectedReturnIds, setSelectedReturnIds] = useState<string[]>([]);
 
   const orderQuery = useQuery({
     queryKey: ["order-detail", orderId],
     queryFn: () => getOrderDetail(orderId),
   });
+
+  const returnableItems = useMemo(() => {
+    const order = orderQuery.data;
+    if (!order || order.status !== "DELIVERED" || order.paymentStatus !== "SUCCESS") {
+      return [];
+    }
+    const now = Date.now();
+    return order.items.filter((item) => {
+      if (item.returnsAllowed === false) return false;
+      if (item.refundedAt) return false;
+      const status = item.returnStatus ?? "NONE";
+      if (status !== "NONE" && status !== "REJECTED") return false;
+      if (order.deliveredAt && item.returnWindowDays != null) {
+        const end = new Date(order.deliveredAt);
+        end.setDate(end.getDate() + item.returnWindowDays);
+        if (now > end.getTime()) return false;
+      }
+      return true;
+    });
+  }, [orderQuery.data]);
+
+  useEffect(() => {
+    setSelectedReturnIds(returnableItems.map((item) => item.id));
+  }, [returnableItems]);
 
   const trackingQuery = useQuery({
     queryKey: ["order-tracking", orderId],
@@ -69,7 +131,17 @@ export function OrderDetailScreen() {
 
   const returnMutation = useMutation({
     mutationFn: () =>
-      requestOrderReturn(orderId, reason || "Requesting return from mobile app"),
+      requestOrderReturn(
+        orderId,
+        reason || "Requesting return from mobile app",
+        selectedReturnIds,
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["order-detail", orderId] }),
+      ]);
+    },
   });
 
   const retryPaymentMutation = useMutation({
@@ -118,6 +190,10 @@ export function OrderDetailScreen() {
   }
 
   async function handleReturn() {
+    if (selectedReturnIds.length === 0) {
+      Alert.alert("Select items", "Choose at least one item to return.");
+      return;
+    }
     try {
       await returnMutation.mutateAsync();
       Alert.alert("Return requested", "Your return request has been submitted.");
@@ -213,14 +289,39 @@ export function OrderDetailScreen() {
         <Text style={styles.title}>Line items</Text>
         {order.items.map((item) => {
           const lineTotal = Number(item.price) * item.quantity;
+          const canSelectForReturn = returnableItems.some((row) => row.id === item.id);
+          const selected = selectedReturnIds.includes(item.id);
           return (
-            <View key={item.id} style={styles.lineItemRow}>
+            <Pressable
+              key={item.id}
+              style={styles.lineItemRow}
+              disabled={!canSelectForReturn}
+              onPress={() => {
+                if (!canSelectForReturn) return;
+                setSelectedReturnIds((prev) =>
+                  prev.includes(item.id)
+                    ? prev.filter((id) => id !== item.id)
+                    : [...prev, item.id],
+                );
+              }}
+            >
               <View style={{ flex: 1 }}>
-                <Text style={styles.lineItemTitle}>{item.product.title}</Text>
-                <Text style={styles.meta}>Qty {item.quantity} x Rs. {Number(item.price).toFixed(2)}</Text>
+                <Text style={styles.lineItemTitle}>
+                  {canSelectForReturn ? (selected ? "☑ " : "☐ ") : ""}
+                  {item.product.title}
+                  {item.variantName ? ` (${item.variantName})` : ""}
+                </Text>
+                <Text style={styles.meta}>
+                  Qty {item.quantity} x Rs. {Number(item.price).toFixed(2)}
+                  {item.returnStatus && item.returnStatus !== "NONE"
+                    ? ` · ${item.returnStatus}`
+                    : item.refundedAt
+                      ? " · refunded"
+                      : ""}
+                </Text>
               </View>
               <Text style={styles.lineItemTotal}>Rs. {lineTotal.toFixed(2)}</Text>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -244,12 +345,39 @@ export function OrderDetailScreen() {
         ) : (
           <>
             <Text style={styles.meta}>Overall status: {tracking.status}</Text>
-            {tracking.shipments.map((shipment, index) => (
-              <Text key={`${shipment.storeName}-${index}`} style={styles.meta}>
-                {shipment.storeName}: {shipment.status}
-                {shipment.trackingNumber ? ` (${shipment.trackingNumber})` : ""}
-              </Text>
-            ))}
+            {tracking.shipments.map((shipment, index) => {
+              const events = extractShipmentEvents(shipment.liveTracking);
+              return (
+                <View key={`${shipment.storeName}-${index}`} style={styles.shipmentCard}>
+                  <Text style={styles.shipmentTitle}>{shipment.storeName}</Text>
+                  <Text style={styles.meta}>
+                    {shipment.status}
+                    {shipment.trackingNumber ? ` • ${shipment.trackingNumber}` : ""}
+                  </Text>
+                  {events.length > 0 ? (
+                    <View style={styles.shipmentEventList}>
+                      {events.map((event, eventIndex) => (
+                        <View key={`${event.label}-${eventIndex}`} style={styles.shipmentEventRow}>
+                          <View style={styles.shipmentEventDot} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.shipmentEventLabel}>{event.label}</Text>
+                            {(event.timestamp || event.location) ? (
+                              <Text style={styles.shipmentEventMeta}>
+                                {event.timestamp ?? ""}
+                                {event.timestamp && event.location ? " • " : ""}
+                                {event.location ?? ""}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.meta}>Live tracking events will appear here.</Text>
+                  )}
+                </View>
+              );
+            })}
           </>
         )}
       </View>
@@ -270,6 +398,7 @@ export function OrderDetailScreen() {
             title="Request return"
             variant="danger"
             loading={returnMutation.isPending}
+            disabled={returnableItems.length === 0 || selectedReturnIds.length === 0}
             onPress={handleReturn}
           />
         </View>
@@ -398,6 +527,46 @@ const styles = StyleSheet.create({
   lineItemTotal: {
     color: colors.text,
     fontWeight: "700",
+  },
+  shipmentCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    padding: 10,
+    gap: 6,
+    marginTop: 8,
+  },
+  shipmentTitle: {
+    color: colors.text,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  shipmentEventList: {
+    gap: 8,
+    marginTop: 2,
+  },
+  shipmentEventRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  shipmentEventDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    backgroundColor: colors.primary,
+  },
+  shipmentEventLabel: {
+    color: colors.text,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  shipmentEventMeta: {
+    color: colors.mutedText,
+    fontSize: 11,
+    marginTop: 1,
   },
   modalOverlay: {
     flex: 1,

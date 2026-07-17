@@ -8,6 +8,7 @@ import { getCart, removeCartItem, updateCartItem } from "@/services/cart";
 import { LoadingView } from "@/components/ui/LoadingView";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AppButton } from "@/components/ui/AppButton";
+import { AppTopHeader } from "@/components/ui/AppTopHeader";
 import { colors } from "@/theme/colors";
 import type { CartStackParamList } from "@/navigation/AppNavigator";
 
@@ -72,6 +73,7 @@ export function CartScreen() {
 
   return (
     <View style={styles.container}>
+      <AppTopHeader />
       <FlatList
         data={cart?.items ?? []}
         keyExtractor={(item) => item.id}

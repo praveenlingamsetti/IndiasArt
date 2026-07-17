@@ -28,9 +28,13 @@ export async function cancelOrder(orderId: string, reason: string) {
   );
 }
 
-export async function requestOrderReturn(orderId: string, reason: string) {
+export async function requestOrderReturn(
+  orderId: string,
+  reason: string,
+  orderItemIds: string[],
+) {
   return requestData<{ message: string }>(
-    http.post(`/api/mobile/orders/${orderId}/return`, { reason }),
+    http.post(`/api/mobile/orders/${orderId}/return`, { reason, orderItemIds }),
   );
 }
 
