@@ -78,10 +78,14 @@ export type ProductDetail = {
     imageUrl: string;
   }>;
   avgRating: number;
+  acceptsReturnsOverride?: boolean | null;
+  returnWindowDaysOverride?: number | null;
   vendor?: {
     id: string;
     storeName: string;
     storeSlug: string;
+    acceptsReturns?: boolean;
+    returnWindowDays?: number;
   } | null;
   category?: {
     id: string;

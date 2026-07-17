@@ -214,6 +214,10 @@ export function ProductDetailScreen() {
     (item) => item.productId === product.id,
   );
   const imageWidth = Math.max(220, viewportWidth - 32);
+  const returnsAllowed =
+    product.acceptsReturnsOverride ?? product.vendor?.acceptsReturns ?? true;
+  const returnWindowDays =
+    product.returnWindowDaysOverride ?? product.vendor?.returnWindowDays ?? 7;
   const cartLine = (cartQuery.data?.items ?? []).find(
     (item) =>
       item.product.id === product.id &&
@@ -433,7 +437,15 @@ export function ProductDetailScreen() {
       </View>
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Return policy</Text>
-        <Text style={styles.infoText}>Easy returns within 7 days for eligible products</Text>
+        {returnsAllowed ? (
+          <Text style={styles.infoText}>
+            Returns accepted within {returnWindowDays} days of delivery
+          </Text>
+        ) : (
+          <Text style={[styles.infoText, styles.noReturnsText]}>
+            No returns accepted
+          </Text>
+        )}
       </View>
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Specifications</Text>
@@ -716,6 +728,10 @@ const styles = StyleSheet.create({
   },
   infoText: {
     color: colors.mutedText,
+  },
+  noReturnsText: {
+    color: "#78350F",
+    fontWeight: "600",
   },
   reviewCard: {
     borderWidth: 1,
